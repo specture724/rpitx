@@ -1,0 +1,9 @@
+[submodule "csdr"]
+	path = csdr
+	url = git@github.com:specture724/csdr.git
+[submodule "src/librpitx"]
+	path = src/librpitx
+	url = git@github.com:specture724/librpitx.git
+[submodule "src/pift8/ft8_lib"]
+	path = src/pift8/ft8_lib
+	url = git@github.com:specture724/ft8_lib.git

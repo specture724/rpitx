@@ -4,6 +4,18 @@ echo "Install rpitx - some packages need internet connection -"
 
 ARCH="$(uname -m)"
 
+# Resolve the dependency forks from this repository's origin, so that a clone
+# of your own rpitx fork also pulls your matching forks (e.g. specture724/csdr,
+# specture724/librpitx, specture724/ft8_lib). Defaults to the upstream owner.
+GITHUB_USER="F5OEO"
+ORIGIN_URL="$(git remote get-url origin 2>/dev/null)"
+case "$ORIGIN_URL" in
+  *github.com:*/*) GITHUB_USER="$(echo "$ORIGIN_URL" | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p')" ;;
+  *github.com/*/*) GITHUB_USER="$(echo "$ORIGIN_URL" | sed -n 's#.*github.com/\([^/]*\)/.*#\1#p')" ;;
+esac
+[ -n "$GITHUB_USER" ] || GITHUB_USER="F5OEO"
+echo "Using dependency forks from github.com/$GITHUB_USER"
+
 # Clone a repo if not already present, retrying on transient network errors.
 clone_repo() {
   repo="$1"
@@ -40,13 +52,13 @@ sudo apt-get install -y libraspberrypi-dev || echo "Note: libraspberrypi-dev not
 sudo apt-get install -y rtl-sdr buffer
 
 # We use CSDR as a dsp for analogs modes thanks to HA7ILM
-clone_repo https://github.com/F5OEO/csdr csdr
+clone_repo "https://github.com/$GITHUB_USER/csdr" csdr
 cd csdr || exit
 make && sudo make install
 cd ../ || exit
 
 cd src || exit
-clone_repo https://github.com/F5OEO/librpitx librpitx
+clone_repo "https://github.com/$GITHUB_USER/librpitx" librpitx
 cd librpitx/src || exit
 # Modern Raspberry Pi OS (Bookworm+) and all 64-bit OS no longer ship the
 # VideoCore userland under /opt/vc (including libbcm_host). librpitx provides
@@ -72,7 +84,7 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
 fi
 
 cd pift8 || exit
-clone_repo https://github.com/F5OEO/ft8_lib ft8_lib
+clone_repo "https://github.com/$GITHUB_USER/ft8_lib" ft8_lib
 cd ft8_lib || exit
 make && sudo make install
 cd ../ || exit
