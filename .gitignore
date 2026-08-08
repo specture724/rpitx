@@ -30,3 +30,6 @@
 *.o
 *.a
 *.so
+
+# Phase 2 scratch research
+/.phase2/
