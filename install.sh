@@ -16,6 +16,27 @@ esac
 [ -n "$GITHUB_USER" ] || GITHUB_USER="F5OEO"
 echo "Using dependency forks from github.com/$GITHUB_USER"
 
+# Check out the exact revision recorded in this repository's gitlink for a
+# dependency, just like "git clone --recursive" would. This keeps the build
+# consistent with the tested configuration even when a fork's default branch
+# has moved on (e.g. ft8_lib was rewritten from C++ to C upstream).
+pin_submodule() {
+  dir="$1"
+  RECORDED="$(git ls-files -s -- "$dir" 2>/dev/null | awk '$1 == 160000 {print $2}')"
+  if [ -z "$RECORDED" ]; then
+    echo "Note: no recorded revision for $dir, using default branch"
+    return 0
+  fi
+  CURRENT="$(git -C "$dir" rev-parse HEAD 2>/dev/null)"
+  if [ "$CURRENT" = "$RECORDED" ]; then
+    return 0
+  fi
+  echo "Pinning $dir to recorded revision $RECORDED"
+  if ! git -C "$dir" checkout -q "$RECORDED" 2>/dev/null; then
+    echo "Warning: could not check out $RECORDED in $dir (does your fork have it?)"
+  fi
+}
+
 # Clone a repo if not already present, retrying on transient network errors.
 clone_repo() {
   repo="$1"
@@ -29,6 +50,7 @@ clone_repo() {
       # Force HTTP/1.1: GitHub's HTTP/2 can drop large clones with
       # "curl 92 ... CANCEL" errors, especially on slower connections.
       if git -c http.version=HTTP/1.1 clone "$repo" "$dir"; then
+        pin_submodule "$dir"
         return 0
       fi
       if [ "$attempt" -lt 5 ]; then
@@ -38,6 +60,8 @@ clone_repo() {
     done
     echo "Failed to clone $repo" >&2
     exit 1
+  else
+    pin_submodule "$dir"
   fi
 }
 
