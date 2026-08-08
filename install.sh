@@ -8,7 +8,9 @@ ARCH="$(uname -m)"
 # Clone the repository with --recursive, or run "git submodule update --init".
 require_submodule() {
   dir="$1"
-  if [ ! -d "$dir/.git" ]; then
+  # .git is a directory for standalone checkouts but a gitdir pointer file
+  # for submodules populated by "git clone --recursive".
+  if [ ! -e "$dir/.git" ]; then
     echo "ERROR: dependency '$dir' is missing." >&2
     echo "Please clone this repository with --recursive, or run:" >&2
     echo "  git submodule update --init" >&2
