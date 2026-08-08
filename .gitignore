@@ -1,8 +1,32 @@
+# Compiled binaries (built by src/Makefile into the repo root)
+/corel8
+/dvbrf
+/foxhunt
+/freedv
+/morse
 /piam
+/pichirp
 /pidcf77
 /pifm
+/pifmrds
 /pifsq
+/pift8
+/piopera
+/pirtty
 /pissb
 /pisstv
+/pocsag
 /rpitx
+/sendiq
+/sendook
+/spectrumpaint
+/tune
+
+# Compiled binaries (built inside src/)
+/src/pift8/pift8
+/src/pifmrds/rds_wav
+
+# Compiled objects and libraries
 *.o
+*.a
+*.so

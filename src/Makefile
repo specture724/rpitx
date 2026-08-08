@@ -1,4 +1,4 @@
-all: ../pisstv ../piopera ../pifsq ../pichirp ../sendiq ../tune ../freedv ../pocsag ../spectrumpaint ../pifmrds ../rpitx ../corel8 ../pift8 ../sendook ../morse ../foxhunt ../pirtty ../dvbrf
+all: ../pisstv ../piopera ../pifsq ../pichirp ../sendiq ../tune ../freedv ../pocsag ../spectrumpaint ../pifmrds ../rpitx ../corel8 ../pift8 ../sendook ../morse ../foxhunt ../pirtty
 
 CFLAGS	?= -Wall -g -O2 -Wno-unused-variable
 CXXFLAGS ?= -std=c++11 -Wall -g -O2 -Wno-unused-variable
@@ -80,21 +80,21 @@ LDFLAGS_Pissb	= $(LDFLAGS) -lsndfile -lliquid
 
 CFLAGS_Pifm	= -Wall -g -O2 -Wno-unused-variable
 LDFLAGS_Pifm	= $(LDFLAGS) -lsndfile
-../pifm : ../fm/pifm.c
-	$(CC) $(CFLAGS_Pifm) -o ../pifm ../fm/pifm.c  $(LDFLAGS_Pifm)
+../pifm : fm/pifm.c
+	$(CC) $(CFLAGS_Pifm) -o ../pifm fm/pifm.c  $(LDFLAGS_Pifm)
 
 CFLAGS_Piam	= -Wall -g -O2 -Wno-unused-variable
 LDFLAGS_Piam	= $(LDFLAGS_Pifm)
-../piam : ../am/piam.c
-	$(CC) $(CFLAGS_Piam) -o ../piam ../am/piam.c  $(LDFLAGS_Piam)
+../piam : am/piam.c
+	$(CC) $(CFLAGS_Piam) -o ../piam am/piam.c  $(LDFLAGS_Piam)
 
 CFLAGS_Pidcf77	= -Wall -g -O2 -Wno-unused-variable
-../pidcf77 : ../dcf77/pidcf77.c
-	$(CC) $(CFLAGS_Piam) -o ../pidcf77 ../dcf77/pidcf77.c  $(LDFLAGS)
+../pidcf77 : dcf77/pidcf77.c
+	$(CC) $(CFLAGS_Piam) -o ../pidcf77 dcf77/pidcf77.c  $(LDFLAGS)
 clean:
 	rm -f  ../dvbrf ../sendiq ../pissb ../pisstv ../pifsq ../pifm ../piam ../pidcf77 ../pichirp ../tune ../freedv ../piopera ../spectrumpaint ../pocsag ../pifmrds ../rpitx ../sendook ../foxhunt ../morse ../pift8
 
-install: all
+install: all ../piam ../pidcf77
 	install -m 0755 ../pisstv $(INSTALL_DIR)
 	install -m 0755 ../foxhunt $(INSTALL_DIR)
 	install -m 0755 ../pirtty $(INSTALL_DIR)
@@ -107,10 +107,8 @@ install: all
 	install -m 0755 ../rpitx $(INSTALL_DIR)
 	install -m 0755 ../pift8 $(INSTALL_DIR)
 	install -m 0755 ../sendook $(INSTALL_DIR)
-	install -m 0755 ../dvbrf $(INSTALL_DIR)
 	install -m 0755 ../pifmrds $(INSTALL_DIR)
 	install -m 0755 ../pocsag $(INSTALL_DIR)
-	install -m 0755 ../pissb $(INSTALL_DIR)
 	install -m 0755 ../piam $(INSTALL_DIR)
 	install -m 0755 ../pidcf77 $(INSTALL_DIR)
 	install -m 0755 ../spectrumpaint $(INSTALL_DIR)
