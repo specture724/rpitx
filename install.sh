@@ -4,64 +4,27 @@ echo "Install rpitx - some packages need internet connection -"
 
 ARCH="$(uname -m)"
 
-# Resolve the dependency forks from this repository's origin, so that a clone
-# of your own rpitx fork also pulls your matching forks (e.g. specture724/csdr,
-# specture724/librpitx, specture724/ft8_lib). Defaults to the upstream owner.
-GITHUB_USER="F5OEO"
-ORIGIN_URL="$(git remote get-url origin 2>/dev/null)"
-case "$ORIGIN_URL" in
-  *github.com:*/*) GITHUB_USER="$(echo "$ORIGIN_URL" | sed -n 's#.*github.com[:/]\([^/]*\)/.*#\1#p')" ;;
-  *github.com/*/*) GITHUB_USER="$(echo "$ORIGIN_URL" | sed -n 's#.*github.com/\([^/]*\)/.*#\1#p')" ;;
-esac
-[ -n "$GITHUB_USER" ] || GITHUB_USER="F5OEO"
-echo "Using dependency forks from github.com/$GITHUB_USER"
-
-# Check out the exact revision recorded in this repository's gitlink for a
-# dependency, just like "git clone --recursive" would. This keeps the build
-# consistent with the tested configuration even when a fork's default branch
-# has moved on (e.g. ft8_lib was rewritten from C++ to C upstream).
-pin_submodule() {
+# The dependencies (csdr, librpitx, ft8_lib) are fetched as git submodules.
+# Clone the repository with --recursive, or run "git submodule update --init".
+require_submodule() {
   dir="$1"
-  RECORDED="$(git ls-files -s -- "$dir" 2>/dev/null | awk '$1 == 160000 {print $2}')"
-  if [ -z "$RECORDED" ]; then
-    echo "Note: no recorded revision for $dir, using default branch"
-    return 0
-  fi
-  CURRENT="$(git -C "$dir" rev-parse HEAD 2>/dev/null)"
-  if [ "$CURRENT" = "$RECORDED" ]; then
-    return 0
-  fi
-  echo "Pinning $dir to recorded revision $RECORDED"
-  if ! git -C "$dir" checkout -q "$RECORDED" 2>/dev/null; then
-    echo "Warning: could not check out $RECORDED in $dir (does your fork have it?)"
+  if [ ! -d "$dir/.git" ]; then
+    echo "ERROR: dependency '$dir' is missing." >&2
+    echo "Please clone this repository with --recursive, or run:" >&2
+    echo "  git submodule update --init" >&2
+    exit 1
   fi
 }
 
-# Clone a repo if not already present, retrying on transient network errors.
-clone_repo() {
-  repo="$1"
-  dir="$2"
-  if [ ! -d "$dir/.git" ]; then
-    rmdir "$dir" 2>/dev/null || true
-    attempt=0
-    while [ "$attempt" -lt 5 ]; do
-      attempt=$((attempt + 1))
-      echo "Cloning $repo (attempt $attempt/5)..."
-      # Force HTTP/1.1: GitHub's HTTP/2 can drop large clones with
-      # "curl 92 ... CANCEL" errors, especially on slower connections.
-      if git -c http.version=HTTP/1.1 clone "$repo" "$dir"; then
-        pin_submodule "$dir"
-        return 0
-      fi
-      if [ "$attempt" -lt 5 ]; then
-        echo "Clone failed, retrying in 5 seconds..."
-        sleep 5
-      fi
-    done
-    echo "Failed to clone $repo" >&2
-    exit 1
-  else
-    pin_submodule "$dir"
+# Warn when a submodule is not at the revision recorded in the gitlink
+# (e.g. after a plain clone that never ran "git submodule update").
+check_submodule_revision() {
+  dir="$1"
+  RECORDED="$(git ls-files -s -- "$dir" 2>/dev/null | awk '$1 == 160000 {print $2}')"
+  CURRENT="$(git -C "$dir" rev-parse HEAD 2>/dev/null)"
+  if [ -n "$RECORDED" ] && [ -n "$CURRENT" ] && [ "$CURRENT" != "$RECORDED" ]; then
+    echo "Warning: $dir is at $CURRENT but the recorded revision is $RECORDED"
+    echo "  run: git submodule update --init (or checkout $RECORDED)"
   fi
 }
 
@@ -76,13 +39,15 @@ sudo apt-get install -y libraspberrypi-dev || echo "Note: libraspberrypi-dev not
 sudo apt-get install -y rtl-sdr buffer
 
 # We use CSDR as a dsp for analogs modes thanks to HA7ILM
-clone_repo "https://github.com/$GITHUB_USER/csdr" csdr
+require_submodule csdr
+check_submodule_revision csdr
 cd csdr || exit
 make && sudo make install
 cd ../ || exit
 
 cd src || exit
-clone_repo "https://github.com/$GITHUB_USER/librpitx" librpitx
+require_submodule librpitx
+check_submodule_revision librpitx
 cd librpitx/src || exit
 # Modern Raspberry Pi OS (Bookworm+) and all 64-bit OS no longer ship the
 # VideoCore userland under /opt/vc (including libbcm_host). librpitx provides
@@ -108,7 +73,8 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
 fi
 
 cd pift8 || exit
-clone_repo "https://github.com/$GITHUB_USER/ft8_lib" ft8_lib
+require_submodule ft8_lib
+check_submodule_revision ft8_lib
 cd ft8_lib || exit
 make && sudo make install
 cd ../ || exit
