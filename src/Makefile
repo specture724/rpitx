@@ -36,6 +36,13 @@ LDFLAGS_Pissb	= $(LDFLAGS) -lsndfile -lliquid
 ../morse : morse/morse.cpp 
 	$(CXX) $(CXXFLAGS) -o ../morse morse/morse.cpp  $(LDFLAGS)
 
+PIOFM_INC := $(patsubst %/linux/pio_rp1.h,%,$(firstword $(wildcard /usr/src/linux-headers-*/include/linux/pio_rp1.h)))
+../piofm: piofm/piofm.c
+	$(CC) -O2 -idirafter $(PIOFM_INC) -o ../piofm piofm/piofm.c -lm
+
+../pio_fsk: piofm/pio_fsk.c
+	$(CC) -O2 -idirafter $(PIOFM_INC) -o ../pio_fsk piofm/pio_fsk.c -lm
+
 ../sendiq : sendiq.cpp 
 	$(CXX) $(CXXFLAGS) -o ../sendiq sendiq.cpp  $(LDFLAGS)
 

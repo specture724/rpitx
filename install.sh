@@ -86,6 +86,18 @@ cd ../ || exit
 make && sudo make install
 cd .. || exit
 
+# Pi 5: build the PIO-based transmitter tools (official /dev/pio0 API).
+# These only make sense on the Raspberry Pi 5 (RP1 PIO hardware).
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  if make ../piofm ../pio_fsk; then
+    sudo install -m 0755 ../piofm /usr/local/bin/piofm
+    sudo install -m 0755 ../pio_fsk /usr/local/bin/pio_fsk
+    echo "PIO transmitter tools installed (piofm, pio_fsk)"
+  else
+    echo "Warning: PIO transmitter tools could not be built (kernel headers missing?)"
+  fi
+fi
+
 printf "\n\n"
 printf "In order to run properly, rpitx need to modify /boot/config.txt. Are you sure (y/n) "
 read -r CONT

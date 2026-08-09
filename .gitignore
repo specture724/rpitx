@@ -21,6 +21,8 @@
 /sendook
 /spectrumpaint
 /tune
+/piofm
+/pio_fsk
 
 # Compiled binaries (built inside src/)
 /src/pift8/pift8
