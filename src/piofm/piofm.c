@@ -89,6 +89,23 @@ static int pio_setup(int fd, uint16_t *off)
 	return ioctl(fd, PIO_IOC_SM_CONFIG_XFER32, &cx);
 }
 
+/* After a long DMA feed the RP1 DMA channel can stay enabled waiting for a
+ * PIO DREQ. Re-enable the SM and feed a few words so the pending transfer
+ * completes and the channel stops (otherwise the next run fails setup). */
+static void pio_drain(int fd)
+{
+	struct rp1_pio_sm_set_enabled_args en = { .mask = 1, .enable = 1 };
+	struct rp1_pio_sm_put_args put = { .sm = 0, .blocking = 1 };
+	ioctl(fd, PIO_IOC_SM_SET_ENABLED, &en);
+	for (int i = 0; i < 4; i++) {
+		put.data = 20000; ioctl(fd, PIO_IOC_SM_PUT, &put);
+		put.data = 2;     ioctl(fd, PIO_IOC_SM_PUT, &put);
+	}
+	usleep(200000);
+	en.enable = 0;
+	ioctl(fd, PIO_IOC_SM_SET_ENABLED, &en);
+}
+
 int main(int argc, char **argv)
 {
 	double carrier = 1e6, dev = 50e3, rate = 192000, tone = 1000;
@@ -130,7 +147,7 @@ int main(int argc, char **argv)
 		uint32_t P = (uint32_t)(PIO_CLK / (2.0 * fi)) - 3;
 		if (P < 1) P = 1;
 		uint32_t X = (uint32_t)(PIO_CLK / (rate * ((double)P + 3)));
-		if (X < 1) X = 1;
+		if (X < 2) X = 2;
 		samples[i * 2] = P;
 		samples[i * 2 + 1] = X;
 	}
@@ -143,14 +160,31 @@ int main(int argc, char **argv)
 	if (pio_setup(fd, &off) < 0) { perror("pio_setup"); return 1; }
 
 	struct rp1_pio_sm_set_enabled_args en = { .mask = 1, .enable = 1 };
-	ioctl(fd, PIO_IOC_SM_SET_ENABLED, &en);
+	int er = ioctl(fd, PIO_IOC_SM_SET_ENABLED, &en);
+	if (er < 0) { perror("ENABLE"); return 1; }
+	struct rp1_pio_sm_fifo_state_args fsdbg = { .sm = 0, .tx = 1 };
+	ioctl(fd, PIO_IOC_SM_FIFO_STATE, &fsdbg);
+	printf("after enable: fifo_level=%u empty=%d full=%d\n",
+	       fsdbg.level, fsdbg.empty, fsdbg.full);
 	pid_t pid = fork();
 	if (pid == 0) {
-		struct rp1_pio_sm_xfer_data32_args xd = { .sm = 0, .dir = PIO_DIR_TO_SM,
-							 .data_bytes = nsamp * 8,
-							 .data = samples };
-		int xr = ioctl(fd, PIO_IOC_SM_XFER_DATA32, &xd);
-		_exit(xr < 0 ? 1 : 0);
+		/* feed in <=1KB chunks: each chunk is a single bounce-buffer
+		 * transfer that completes cleanly (a big one-shot feed leaves
+		 * the RP1 DMA channel waiting on the PIO DREQ). */
+		uint8_t *p = (uint8_t *)samples;
+		uint32_t left = nsamp * 8;
+		while (left > 0) {
+			uint32_t chunk = left > 1024 ? 1024 : left;
+			struct rp1_pio_sm_xfer_data32_args xd = {
+				.sm = 0, .dir = PIO_DIR_TO_SM,
+				.data_bytes = chunk, .data = p,
+			};
+			int xr = ioctl(fd, PIO_IOC_SM_XFER_DATA32, &xd);
+			if (xr < 0) { perror("XFER"); _exit(1); }
+			p += chunk;
+			left -= chunk;
+		}
+		_exit(0);
 	}
 
 	if (verify) {
@@ -181,6 +215,7 @@ int main(int argc, char **argv)
 		}
 	}
 	waitpid(pid, NULL, 0);
+	pio_drain(fd);
 	en.enable = 0;
 	ioctl(fd, PIO_IOC_SM_SET_ENABLED, &en);
 	printf("done\n");
