@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
     fprintf(stderr,"Warning : rpitx V2 is only to try to be compatible with version 1\n");
     // For IQ
     #define IQBURST 4000
-    iqdmasync *iqsender=NULL;
+    iqbasesender *iqsender=NULL;
     std::complex<float> CIQBuffer[IQBURST];	
     int Decimation=1;
     // For RF (FM)
@@ -220,11 +220,9 @@ int main(int argc, char* argv[])
             case MODE_RPITX_IQ_FLOAT:
             {
                 if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
-                {
-                        fprintf(stderr,"Error : IQ mode is not yet supported on Raspberry Pi 5 (only FM/RF via the PIO backend)\n");
-                        exit(1);
-                }
-                iqsender=new iqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ); 
+                        iqsender=new pioiqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
+                else
+                        iqsender=new iqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
                 iqsender->Setppm(ppmpll);  
             }
             break;
