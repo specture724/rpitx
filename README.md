@@ -19,8 +19,11 @@ sudo apt-get install git
 ```
 You can now clone the repository. A script (install.sh) is there for easy installation. You could inspect it and make steps manualy in case of any doubt. You can note that /boot/config.txt should be prompt to be modified during the installation. If it is not accepted, **rpitx** will be unstable.  
 
+This fork keeps the DSP/transmitter dependencies (csdr, librpitx,
+ft8_lib) as git submodules, so clone with --recursive:
+
 ```sh
-git clone https://github.com/F5OEO/rpitx
+git clone --recursive git@github.com:specture724/rpitx.git
 cd rpitx
 ./install.sh
 ```
@@ -46,6 +49,58 @@ sudo reboot
 | Pi4|In beta mode|
 
 Plug a wire on GPIO 4, means Pin 7 of the GPIO header ([header P1](http://elinux.org/RPi_Low-level_peripherals#General_Purpose_Input.2FOutput_.28GPIO.29)). This acts as the antenna. The optimal length of the wire depends the frequency you want to transmit on, but it works with a few centimeters for local testing.
+
+# Raspberry Pi 5 (RP1) support
+
+The Raspberry Pi 5 uses the RP1 south bridge, which drops the BCM2835
+PLL/PWM/PCM DMA paths the original rpitx relies on. This fork adds RP1
+backends so the most useful modes transmit again.
+
+Run the tools with `sudo` (they need /dev/pio0 and write the PCIe ASPM
+policy so GPIO reads stay fast). A reboot after install is recommended.
+
+## What works on Pi 5
+
+| Tool / mode | Output | Notes |
+|---|---|---|
+| `tune -f <Hz>` | pure carrier via the RP1 GP0 clock | up to ~750 MHz |
+| `rpitx -m RF` | FM via the RP1 PIO + DMA | carrier ceiling ~25 MHz; FM usable to ~1 MHz |
+| `rpitx -m RFA` | AM (OOK envelope) via the RP1 PIO | carrier ceiling ~25 MHz |
+| `piofm` | FM audio tool (tone or raw file) | same constraints as `-m RF` |
+| `pio_fsk` | FSK symbol transmitter | low carriers (10-20 kHz class) |
+
+Not working yet on Pi 5: IQ / SSB modes (`-m IQ`, `-m IQFLOAT`) and the
+DVB-T path (`dvbrf` is skipped on 64-bit builds). The other classic tools
+(pifmrds, pocsag, ...) still use the BCM2835 DMA path and are not
+available on the RP1.
+
+## Frequency constraints of the PIO backends
+
+The PIO waveform is a variable-period square wave: carrier =
+`PIO_CLK / (2 * (P+3))` with `P >= 1`, so the ceiling is ~25 MHz and the
+period is quantized in integer half-cycles (fine below ~1 MHz, coarse at
+HF). The sample rate must stay at or below the carrier (`X >= 2`).
+
+## Examples
+
+```sh
+# VFO: 10 MHz carrier
+sudo ./tune -f 10000000
+
+# FM tone: 20 kHz carrier, +/-5 kHz deviation, 1 kHz tone, 2 s
+sudo ./piofm -f 20000 -d 5000 -r 8000 -t 1000 -n 2
+
+# rpitx FM from an RF-format samplerf file (frequency deviation samples)
+sudo ./rpitx -i file.samplerf -m RF -f 20000 -s 8000
+
+# rpitx AM from an RF-format samplerf file (amplitude samples)
+sudo ./rpitx -i file.samplerf -m RFA -f 100000 -s 8000
+```
+
+Wire: GPIO4 (pin 7 of the 40-pin header) with a short wire antenna; for
+SDR testing add an attenuator before the receiver input. The PIO square
+wave has strong odd harmonics, so a 10 MHz carrier is receivable at
+50/70/90 MHz - `pi5_sdr_test.sh` automates this.
 
 # How to use it
 ![easymenu](/doc/easymenu.png)
