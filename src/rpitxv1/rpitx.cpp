@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
     // For RF (FM)
     //For RFA (AM)
     amdmasync *amsender=NULL;
-    ngfmdmasync *fmsender=NULL;
+    fmbasesender *fmsender=NULL;
     float AmOrFmBuffer[IQBURST];	
     int FifoSize=IQBURST*4;
     //Init
@@ -219,21 +219,31 @@ int main(int argc, char* argv[])
             case MODE_RPITX_IQ:
             case MODE_RPITX_IQ_FLOAT:
             {
-                
-                
-                
+                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
+                {
+                        fprintf(stderr,"Error : IQ mode is not yet supported on Raspberry Pi 5 (only FM/RF via the PIO backend)\n");
+                        exit(1);
+                }
                 iqsender=new iqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ); 
                 iqsender->Setppm(ppmpll);  
             }
             break;
             case MODE_RPITX_RFA://Amplitude
             {
+                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
+                {
+                        fprintf(stderr,"Error : AM (RFA) mode is not yet supported on Raspberry Pi 5 (only FM/RF via the PIO backend)\n");
+                        exit(1);
+                }
                 amsender=new amdmasync(SetFrequency,SampleRate,14,FifoSize);
             }
             break;
             case MODE_RPITX_RF://Frequency
             {
-                fmsender=new ngfmdmasync(SetFrequency,SampleRate,14,FifoSize);
+                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
+                        fmsender=new piofmdmasync(SetFrequency,SampleRate,14,FifoSize);
+                else
+                        fmsender=new ngfmdmasync(SetFrequency,SampleRate,14,FifoSize);
             }
 
     }        
