@@ -126,7 +126,9 @@ int main(int argc, char **argv)
 	}
 
 	/* read audio (mono 16-bit LE) or generate a tone */
+	if (rate <= 0) { fprintf(stderr, "piofm: bad sample rate\n"); return 1; }
 	int nsamp = (int)(rate * nsec);
+	if (nsamp <= 0) { fprintf(stderr, "piofm: bad sample count\n"); return 1; }
 	int16_t *audio = malloc(nsamp * 2);
 	if (infile) {
 		int f = open(infile, O_RDONLY);
@@ -154,6 +156,7 @@ int main(int argc, char **argv)
 	printf("piofm: carrier=%.0f dev=%.0f rate=%.0f samples=%d\n",
 	       carrier, dev, rate, nsamp);
 
+	build_program();
 	int fd = open("/dev/pio0", O_RDWR);
 	if (fd < 0) { perror("open /dev/pio0"); return 1; }
 	uint16_t off;
@@ -189,9 +192,14 @@ int main(int argc, char **argv)
 
 	if (verify) {
 		/* count transitions per window and print the implied frequency */
-		int mfd = open("/dev/mem", O_RDWR | O_SYNC);
-		volatile uint32_t *g = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE,
-					    MAP_SHARED, mfd, 0x1f000d0000);
+		/* /dev/gpiomem0 maps the RP1 GPIO bank (0x1f000d0000, 0x30000).
+		 * The live pin level is RIO_IN at 0x1f000e0000 + 0x08, i.e.
+		 * offset 0x10008 in this mapping (GPIO STATUS bits are sticky
+		 * event bits, not the real level). */
+		int mfd = open("/dev/gpiomem0", O_RDWR | O_SYNC);
+		if (mfd < 0) { perror("open gpiomem0"); return 1; }
+		volatile uint32_t *g = mmap(NULL, 0x30000, PROT_READ | PROT_WRITE,
+					    MAP_SHARED, mfd, 0);
 		if (g == MAP_FAILED) { perror("mmap"); return 1; }
 		double win = 1000.0 / rate;  /* 1000-sample windows */
 		struct timespec ts;
@@ -201,12 +209,12 @@ int main(int argc, char **argv)
 		unsigned long trans = 0;
 		int prev = -1, wi = 0;
 		while (1) {
-			int level = (g[0x20 / 4] >> 23) & 1;
+			int level = (g[0x10008 / 4] >> OUT_GPIO) & 1;
 			clock_gettime(CLOCK_MONOTONIC, &ts);
 			uint64_t us = ts.tv_sec * 1000000 + ts.tv_nsec / 1000 - t0;
 			if (prev >= 0 && level != prev) trans++;
 			prev = level;
-			if (us - ws >= 1000 * win) {
+			if (us - ws >= 1000.0 * 1000.0 * win) {
 				double freq = trans / (2.0 * win);
 				printf("win %3d: freq=%.0f Hz\n", wi, freq);
 				trans = 0; ws = us; wi++;
