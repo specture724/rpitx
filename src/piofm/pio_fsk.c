@@ -109,7 +109,7 @@ int main(void)
 	uint32_t samples[6 * 2];
 	for (int i = 0; i < nsym; i++) {
 		uint32_t P = (uint32_t)(PIO_CLK / (2.0 * freqs[i])) - 3;
-		uint32_t X = (uint32_t)(PIO_CLK * T_sym / ((double)P + 3));
+		uint32_t X = (uint32_t)(PIO_CLK * T_sym / ((double)P + 3)) - 1;
 		samples[i * 2] = P;
 		samples[i * 2 + 1] = X;
 		printf("sym %d: f=%.0f P=%u X=%u (carrier=%.0f)\n", i, freqs[i],

@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 		double fi = carrier + dev * a;          /* instantaneous freq */
 		uint32_t P = (uint32_t)(PIO_CLK / (2.0 * fi)) - 3;
 		if (P < 1) P = 1;
-		uint32_t X = (uint32_t)(PIO_CLK / (rate * ((double)P + 3)));
+		uint32_t X = (uint32_t)(PIO_CLK / (rate * ((double)P + 3))) - 1;
 		if (X < 2) X = 2;
 		samples[i * 2] = P;
 		samples[i * 2 + 1] = X;
