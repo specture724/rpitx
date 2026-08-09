@@ -94,6 +94,13 @@ int main(void)
 	if (ioctl(fd, PIO_IOC_SM_CONFIG_XFER32, &cx) < 0) {
 		perror("CONFIG_XFER"); return 1;
 	}
+	/* FIFO_THRESHOLD=0: prevent the 4-word DMA burst from overrunning
+	 * the 8-word TX FIFO (drops words and doubles the SM's speed). */
+	struct rp1_pio_sm_set_dmactrl_args da = { .sm = 0, .is_tx = 1,
+						   .ctrl = 0x80000100u };
+	if (ioctl(fd, PIO_IOC_SM_SET_DMACTRL, &da) < 0) {
+		perror("SET_DMACTRL"); return 1;
+	}
 
 	/* FSK: 6 symbols, 100 ms each, alternating 10 kHz / 20 kHz */
 	const double freqs[] = { 10000, 20000, 10000, 20000, 10000, 20000 };

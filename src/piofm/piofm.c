@@ -96,7 +96,15 @@ static int pio_setup(int fd, uint16_t *off)
 	ioctl(fd, PIO_IOC_SM_SET_PINDIRS, &pd);
 	struct rp1_pio_sm_config_xfer32_args cx = { .sm = 0, .dir = PIO_DIR_TO_SM,
 						    .buf_size = 1024, .buf_count = 4 };
-	return ioctl(fd, PIO_IOC_SM_CONFIG_XFER32, &cx);
+	if (ioctl(fd, PIO_IOC_SM_CONFIG_XFER32, &cx) < 0)
+		return -1;
+	/* FIFO_THRESHOLD=0: the default (4) makes the 4-word DMA burst
+	 * overrun the 8-word TX FIFO (DREQ/bus latency), dropping words and
+	 * running the SM at ~2x speed. DREQ then only fires when the FIFO is
+	 * empty, so a 4-word burst always fits. */
+	struct rp1_pio_sm_set_dmactrl_args da = { .sm = 0, .is_tx = 1,
+						   .ctrl = 0x80000100u };
+	return ioctl(fd, PIO_IOC_SM_SET_DMACTRL, &da);
 }
 
 /* After a long DMA feed the RP1 DMA channel can stay enabled waiting for a
