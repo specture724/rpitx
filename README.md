@@ -66,13 +66,13 @@ policy so GPIO reads stay fast). A reboot after install is recommended.
 | `tune -f <Hz>` | pure carrier via the RP1 GP0 clock | up to ~750 MHz |
 | `rpitx -m RF` | FM via the RP1 PIO + DMA | carrier ceiling ~25 MHz; FM usable to ~1 MHz |
 | `rpitx -m RFA` | AM (OOK envelope) via the RP1 PIO | carrier ceiling ~25 MHz |
+| `rpitx -m IQ` / `-m IQFLOAT` | SSB (polar FM+OOK) via the RP1 PIO | same constraints |
 | `piofm` | FM audio tool (tone or raw file) | same constraints as `-m RF` |
 | `pio_fsk` | FSK symbol transmitter | low carriers (10-20 kHz class) |
 
-Not working yet on Pi 5: IQ / SSB modes (`-m IQ`, `-m IQFLOAT`) and the
-DVB-T path (`dvbrf` is skipped on 64-bit builds). The other classic tools
-(pifmrds, pocsag, ...) still use the BCM2835 DMA path and are not
-available on the RP1.
+Not working yet on Pi 5: the DVB-T path (`dvbrf` is skipped on 64-bit
+builds). The other classic tools (pifmrds, pocsag, ...) still use the
+BCM2835 DMA path and are not available on the RP1.
 
 ## Frequency constraints of the PIO backends
 
