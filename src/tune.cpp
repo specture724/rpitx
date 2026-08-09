@@ -19,6 +19,7 @@ Usage:\ntune  [-f Frequency] [-h] \n\
 -f float      frequency carrier Hz(50 kHz to 1500 MHz),\n\
 -e exit immediately without killing the carrier,\n\
 -p set clock ppm instead of ntp adjust\n\
+-d int        Pi 5 only: output drive in mA - 2, 4, 8 or 12 (default 12)\n\
 -h            help (this help).\n\
 \n",\
 PROGRAM_VERSION);
@@ -37,15 +38,19 @@ int main(int argc, char* argv[])
 {
 	int a;
 	int anyargs = 0;
-	float SetFrequency = 434e6;
+	// double, not float: a float only carries ~7 digits, which quantises a
+	// UHF carrier to ~32 Hz steps and throws away the synthesiser's
+	// sub-Hz resolution.
+	double SetFrequency = 434e6;
 	dbg_setlevel(1);
 	bool NotKill=false;
   bool ppmSet = false;
+  int driveMa = 12;
 	float ppm = 0.0f;
   char * endptr = NULL;
 	while(1)
 	{
-		a = getopt(argc, argv, "f:ehp:");
+		a = getopt(argc, argv, "f:ehp:d:");
 	
 		if(a == -1) 
 		{
@@ -57,12 +62,15 @@ int main(int argc, char* argv[])
 		switch(a)
 		{
 		case 'f': // Frequency
-      SetFrequency = strtof(optarg, &endptr);
-      if (endptr == optarg || SetFrequency <= 0.0f || SetFrequency == HUGE_VALF) {
+      SetFrequency = strtod(optarg, &endptr);
+      if (endptr == optarg || SetFrequency <= 0.0 || SetFrequency == HUGE_VAL) {
         fprintf(stderr, "tune: not a valid frequency - '%s'", optarg);
         exit(1);
       }
 			break;
+		case 'd': // pad drive strength in mA (RP1 supports 2/4/8/12)
+      driveMa = atoi(optarg);
+      break;
 		case 'e': //End immediately
 			NotKill=true;
 			break;
@@ -118,6 +126,7 @@ int main(int argc, char* argv[])
 		clk->SetAdvancedPllMode(true);
 		if(ppmSet)	//ppm is set else use ntp
 			clk->Setppm(ppm);
+		clk->SetRP1Drive(driveMa);
 		clk->SetCenterFrequency(SetFrequency,10);
 		clk->SetFrequency(000);
 		clk->enableclk(4);

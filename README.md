@@ -63,7 +63,7 @@ policy so GPIO reads stay fast). A reboot after install is recommended.
 
 | Tool / mode | Output | Notes |
 |---|---|---|
-| `tune -f <Hz>` | pure carrier via the RP1 GP0 clock | up to ~750 MHz |
+| `tune -f <Hz>` | pure carrier | two bands, see below: GPIO4 up to 200 MHz, GPIO6 above |
 | `rpitx -m RF` | FM via the RP1 PIO + DMA | carrier ceiling ~25 MHz; FM usable to ~1 MHz |
 | `rpitx -m RFA` | AM (OOK envelope) via the RP1 PIO | carrier ceiling ~25 MHz |
 | `rpitx -m IQ` / `-m IQFLOAT` | SSB (polar FM+OOK) via the RP1 PIO | same constraints |
@@ -72,7 +72,78 @@ policy so GPIO reads stay fast). A reboot after install is recommended.
 
 Not working yet on Pi 5: the DVB-T path (`dvbrf` is skipped on 64-bit
 builds). The other classic tools (pifmrds, pocsag, ...) still use the
-BCM2835 DMA path and are not available on the RP1.
+BCM2835 DMA path and are not available on the RP1 - they now stop with a
+clear message instead of writing to unrelated RP1 registers.
+
+## Carrier frequency on the Pi 5: two bands, two pins
+
+`tune` picks the synthesiser from the frequency you ask for, and **the
+output pin changes with it**:
+
+| Frequency | Synthesised by | Output pin |
+|---|---|---|
+| exact divide of 200 MHz (100, 50, 25, 10 MHz ...) | GP0 divider off `pll_sys` | **GPIO4** (header pin 7) |
+| everything else, up to 1.6 GHz | `pll_video` PLL -> GP2 | **GPIO6** (header pin 31) |
+
+GP0 is a clock *divider*, not a PLL: asking it for a non-integer ratio
+makes it dither between two divisors and the output becomes a comb of
+spurs instead of a carrier (200/1.3333 for 150 MHz was a bad case). So
+GP0 is only used when `pll_sys` divides exactly; anything else goes to
+`pll_video`, which is a real PLL and can be followed by a large integer
+divider.
+
+The high band works the way the BCM2835 port does: a fractional-N PLL is
+retuned to the carrier. RP1's `pll_video` is idle unless a DPI/DSI panel
+is attached, so rpitx borrows it and hands it back on exit. Its 24-bit
+feedback fraction gives ~1-3 Hz resolution anywhere in the band (the
+BCM2835 has 20 bits). Measured with RP1's on-chip frequency counter, the
+VCO is exact from 600 MHz to 2 GHz; 1.6 GHz is used as a conservative
+ceiling.
+
+### Spectral purity: prefer an integer-N frequency
+
+When the VCO can be an exact multiple of the 50 MHz crystal *and* an
+exact integer multiple of your carrier, the PLL runs integer-N with its
+delta-sigma modulator off and the carrier is clean. Otherwise it runs
+fractional-N and you will see DSM spurs either side of the carrier.
+`tune` says which one it picked:
+
+```
+(fbdiv 30+0/2^24, integer-N: no DSM spurs)         <- clean
+(fbdiv 26+671089/2^24, fractional-N: expect ...)   <- spurs
+```
+
+Integer-N needs `carrier x R = 50 MHz x n` for some integer `R` that
+factors into the dividers. Useful clean spots: 145, 150, 200, 250, 300,
+400, 425, 433.333333, 450, 500, 1500 MHz. 434.000 MHz cannot be
+integer-N from a 50 MHz reference, so it will always have spurs - when
+that happens rpitx prints the nearest frequency that can be done
+integer-N.
+
+### Frequency accuracy (`-p`)
+
+`-p <ppm>` now works on the Pi 5 and corrects the RP1 crystal in both
+bands. It is off unless you pass it: rpitx also reads an NTP-derived ppm,
+but on the Pi 5 that disciplines the *system* clock (a BCM2712
+oscillator) and says nothing about RP1's 50 MHz crystal, so it is not
+applied to the synthesiser.
+
+Calibrate against a signal of known frequency, not against an
+uncalibrated RTL-SDR - a dongle without a TCXO is routinely 50-100 ppm
+off, which looks like 30-100 kHz of "error" at UHF.
+
+Two caveats:
+
+- **Borrowing `pll_video` disables DPI/DSI display output** while a
+  transmit tool is running. It is restored on exit - but a tool killed
+  with SIGKILL cannot restore it, and `tune -k` deliberately leaves the
+  carrier (and the PLL) running.
+- Above 200 MHz you must move your wire from GPIO4 to **GPIO6**. rpitx
+  prints a reminder when it switches bands.
+
+The modulated modes (`-m RF/RFA/IQ`, `piofm`, `pio_fsk`) still go through
+the PIO and are capped at ~25 MHz - the high band is carrier-only for
+now.
 
 ## Frequency constraints of the PIO backends
 
@@ -84,8 +155,11 @@ HF). The sample rate must stay at or below the carrier (`X >= 2`).
 ## Examples
 
 ```sh
-# VFO: 10 MHz carrier
+# VFO: 10 MHz carrier (low band, wire on GPIO4)
 sudo ./tune -f 10000000
+
+# VFO: 434 MHz carrier (high band, wire on GPIO6)
+sudo ./tune -f 434000000
 
 # FM tone: 20 kHz carrier, +/-5 kHz deviation, 1 kHz tone, 2 s
 sudo ./piofm -f 20000 -d 5000 -r 8000 -t 1000 -n 2
