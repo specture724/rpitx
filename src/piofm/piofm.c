@@ -39,6 +39,16 @@ typedef _Bool bool;
 #define OUT_GPIO 4
 #define PIO_CLK  200000000.0
 
+/* Keep the RP1 PCIe link in L0 (no ASPM L1) so GPIO reads stay fast. */
+static void force_aspm_performance(void)
+{
+	FILE *f = fopen("/sys/module/pcie_aspm/parameters/policy", "w");
+	if (!f)
+		return;
+	fputs("performance", f);
+	fclose(f);
+}
+
 static uint16_t prog[RP1_PIO_INSTRUCTION_COUNT];
 
 static void build_program(void)
@@ -157,6 +167,7 @@ int main(int argc, char **argv)
 	       carrier, dev, rate, nsamp);
 
 	build_program();
+	force_aspm_performance();
 	int fd = open("/dev/pio0", O_RDWR);
 	if (fd < 0) { perror("open /dev/pio0"); return 1; }
 	uint16_t off;
