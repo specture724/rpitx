@@ -466,35 +466,29 @@ with the Opera frequency recommendation: */
 	int SR=1e4/((0.256*Nop));
 	fprintf(stderr,"SR=%d\n",SR);	
 	int FifoSize=512;
-	amdmasync amtest(Frequency,SR,14,FifoSize); 
+	ambasesender *amtest = NewAmSender(Frequency,SR,14,FifoSize); 
 	int count=0;   
+	float chunk[FifoSize];
 	for (int i = 0; (i < length-1)&&(running==true); )
 	{
-			int Available=amtest.GetBufferAvailable();
-			if(Available>FifoSize/2)
-			{	
-					int Index=amtest.GetUserMemIndex();			
-					for(int j=0;j<Available;j++)
+			// Fill a chunk and hand it over; SetAmSamples() paces at SR,
+			// which replaces the DMA ring the BCM2835 path used and works
+			// on both backends.
+			int n=0;
+			while(n<FifoSize && i<length-1)
+			{
+					chunk[n++]=(i==-1)?1.0f:(float)code[i];
+					count++;
+					if(count>1e4) 
 					{
-							if(i==-1) 
-								amtest.SetAmSample(Index+j,1);
-							else
-								amtest.SetAmSample(Index+j,code[i]);
-							count++;
-							if(count>1e4) 
-							{
-								count=0;
-								i++;
-							}
+						count=0;
+						i++;
 					}
-							
-						
 			}
-			else
-				usleep(100);	
-		
-	
+			if(n>0)
+				amtest->SetAmSamples(chunk,n);
 	}
+	delete amtest;
  
 }
 

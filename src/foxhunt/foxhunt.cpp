@@ -17,7 +17,7 @@
 
 int FileFreqTiming;
 
-ngfmdmasync *fmmod;
+fmbasesender *fmmod;
 static double GlobalTuningFrequency = 00000.0;
 int FifoSize = 10000; // 10ms
 double frequencyshift = 20000;
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     sigaction(i, &sa, NULL);
   }
 
-  fmmod = new ngfmdmasync(frequency, 100000, 14, FifoSize);
+  fmmod = NewFmSender(frequency, 100000, 14, FifoSize);
   SendTones();
   delete fmmod;
   return 0;

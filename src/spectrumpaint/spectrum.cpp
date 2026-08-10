@@ -19,7 +19,7 @@
 int FilePicture;
 int FileFreqTiming;
 
-iqdmasync *fmmod;
+iqbasesender *fmmod;
 static double GlobalTuningFrequency=00000.0;
 int FifoSize=35000; 
 bool running=true;
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         sigaction(i, &sa, NULL);
     }
 
-	fmmod=new iqdmasync(frequency,10000,14,FifoSize,MODE_FREQ_A);	
+	fmmod=NewIqSender(frequency,10000,14,FifoSize,MODE_FREQ_A);	
 	ProcessPicture(Excursion);
     close(FilePicture);
 	delete fmmod;

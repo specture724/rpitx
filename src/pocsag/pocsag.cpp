@@ -504,7 +504,7 @@ void SendFsk(uint64_t Freq, bool Inverted, int SR, bool debug, uint32_t *Message
     int FiFoSize = 12000;
     if (debug)
         fprintf(stderr, "Fifo Size = %d, Size = %d, Baud rate = %d\n", FiFoSize, Size, SR);
-    fskburst fsktest(Freq - Deviation, SR, Deviation * 2, 14, FiFoSize, 1, 0.0);
+    fskbasesender *fsktest = NewFskBurst(Freq - Deviation, SR, Deviation * 2, 14, FiFoSize, 1, 0.0);
 
     unsigned char *TabSymbol = (unsigned char *)malloc(Size * 32);
     int Sym = 0;
@@ -529,16 +529,16 @@ void SendFsk(uint64_t Freq, bool Inverted, int SR, bool debug, uint32_t *Message
     }
     if (debug)
         fprintf(stderr, "Symbols=%d\n", Sym);
-    fsktest.SetSymbols(TabSymbol, Sym);
+    fsktest->SetSymbols(TabSymbol, Sym);
 
     /*for(i=0;i<FiFoSize;i++)
 		{
 			TabSymbol[i]=1;
 		}	
-		fsktest.SetSymbols(TabSymbol,FiFoSize);
+		fsktest->SetSymbols(TabSymbol,FiFoSize);
 		sleep(1);*/
 
-    fsktest.stop();
+    fsktest->stop();
 }
 
 void print_usage(void)

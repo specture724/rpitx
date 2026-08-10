@@ -20,7 +20,7 @@
 int FilePicture;
 int FileFreqTiming;
 
-ngfmdmasync *fmmod;
+fmbasesender *fmmod;
 static double GlobalTuningFrequency=00000.0;
 int FifoSize=10000; //10ms
 bool running=true;
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
         sigaction(i, &sa, NULL);
     }
 
-	fmmod=new ngfmdmasync(frequency,100000,14,FifoSize);	
+	fmmod=NewFmSender(frequency,100000,14,FifoSize);	
 	ProcessMartin1();
     close(FilePicture);
 	delete fmmod;

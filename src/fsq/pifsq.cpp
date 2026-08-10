@@ -63,7 +63,7 @@ char callsign[10] = "F5OEO";
 char tx_buffer[40];
 uint8_t callsign_crc;
 int FileText;
-ngfmdmasync *fsqmod=NULL;
+fmbasesender *fsqmod=NULL;
 int FifoSize=1000; 
 float Frequency=0;
 // Global variables used in ISRs
@@ -380,7 +380,7 @@ int main(int argc, char **argv)
 	sprintf(tx_buffer, "%s:%02x%s%s", callsign, callsign_crc,sText,"  \b  ");
 	
 	int SR=2000;
-	fsqmod = new ngfmdmasync(Frequency,SR,14,FifoSize);
+	fsqmod = NewFmSender(Frequency,SR,14,FifoSize);
 
 	encode(tx_buffer);
 		

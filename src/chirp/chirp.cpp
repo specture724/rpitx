@@ -15,20 +15,20 @@ void SimpleTestDMA(uint64_t Freq)
 
 	int SR=1000;
 	int FifoSize=4096;
-	ngfmdmasync ngfmtest(Freq,SR,14,FifoSize);
+	fmbasesender *ngfmtest = NewFmSender(Freq,SR,14,FifoSize);
 	for(int i=0;running;)
 	{
 		//usleep(10);
 		usleep(FifoSize*1000000.0*3.0/(4.0*SR));
-		int Available=ngfmtest.GetBufferAvailable();
+		int Available=ngfmtest->GetBufferAvailable();
 		if(Available>FifoSize/2)
 		{	
-			int Index=ngfmtest.GetUserMemIndex();
+			int Index=ngfmtest->GetUserMemIndex();
 			//printf("GetIndex=%d\n",Index);
 			for(int j=0;j<Available;j++)
 			{
-				//ngfmtest.SetFrequencySample(Index,((i%10000)>5000)?1000:0);
-				ngfmtest.SetFrequencySample(Index+j,(i%SR)/10.0);
+				//ngfmtest->SetFrequencySample(Index,((i%10000)>5000)?1000:0);
+				ngfmtest->SetFrequencySample(Index+j,(i%SR)/10.0);
 				i++;
 			
 			}
@@ -36,9 +36,10 @@ void SimpleTestDMA(uint64_t Freq)
 		
 		
 	}
+	delete ngfmtest;
 	fprintf(stderr,"End\n");
 	
-	ngfmtest.stop();
+	ngfmtest->stop();
 	
 }
 
@@ -73,7 +74,7 @@ int main(int argc, char* argv[])
 	int SR=200000;
 	 
 	int FifoSize=4096;
-	ngfmdmasync ngfmtest(Frequency,SR,14,FifoSize);
+	fmbasesender *ngfmtest = NewFmSender(Frequency,SR,14,FifoSize);
 	float Step=Bandwidth/Time;	//Deviation Hz by second 
 	float StepWithSR=Step/(float)SR;
 	int NbStepWithSR=Time*SR;
@@ -83,15 +84,15 @@ int main(int argc, char* argv[])
 	{
 		
 		usleep(FifoSize*1000000.0*3.0/(4.0*SR));
-		int Available=ngfmtest.GetBufferAvailable();
+		int Available=ngfmtest->GetBufferAvailable();
 		if(Available>FifoSize/2)
 		{	
-			int Index=ngfmtest.GetUserMemIndex();
+			int Index=ngfmtest->GetUserMemIndex();
 			
 			for(int j=0;j<Available;j++)
 			{
 				
-				ngfmtest.SetFrequencySample(Index+j,Bandwidth*0.5*sin(2*3.1415*(float)count/(float)NbStepWithSR));
+				ngfmtest->SetFrequencySample(Index+j,Bandwidth*0.5*sin(2*3.1415*(float)count/(float)NbStepWithSR));
 				count++;
 				if(count>NbStepWithSR) count=0;
 			
@@ -101,9 +102,10 @@ int main(int argc, char* argv[])
 		fprintf(stderr,"Freq=%f\n",Bandwidth*0.5*sin(2*3.1415*(float)count/(float)NbStepWithSR));
 		
 	}
+	delete ngfmtest;
 	fprintf(stderr,"End\n");
 	
-	ngfmtest.stop();
+	ngfmtest->stop();
 
 	
 	

@@ -219,11 +219,11 @@ int main(int argc, char* argv[])
 	#define IQBURST 4000
 	int SR=48000;
 	int FifoSize=IQBURST*4;
-	iqdmasync iqtest(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
-	iqtest.SetPLLMasterLoop(3,4,0);
+	iqbasesender *iqtest = NewIqSender(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
+	//iqtest.SetPLLMasterLoop(3,4,0); // BCM2835-only PLL loop tuning
 
         if (fdds==true) {           //if instructed to operate as DDS start with carrier, otherwise I/Q mode it is
-           iqtest.ModeIQ=MODE_FREQ_A;
+           iqtest->SetMode(MODE_FREQ_A);
         }
 
 	//iqtest.print_clock_tree();
@@ -328,11 +328,11 @@ int main(int argc, char* argv[])
            						if (sharedmem_token != 0) {
 							   if (sharedmem->updated==true) {
 							      if (sharedmem->command == 1111) {
-								  iqtest.ModeIQ=MODE_IQ;
+								  iqtest->SetMode(MODE_IQ);
 								  printf("MODE_IQ selected\n");
  							      }
 							      if (sharedmem->command == 2222) {
-							  	  iqtest.ModeIQ=MODE_FREQ_A;
+							  	  iqtest->SetMode(MODE_FREQ_A);
 						                  printf("MODE_FREQ_A selected\n");
 							      }
 
@@ -343,16 +343,12 @@ int main(int argc, char* argv[])
 							      if (sharedmem->command == 4444) {
 								  SetFrequency=sharedmem->data;
 								  printf("Frequency set %f\n",SetFrequency);
-					                          iqtest.clkgpio::disableclk(4);
-					                          iqtest.clkgpio::SetAdvancedPllMode(true);
-					                          iqtest.clkgpio::SetCenterFrequency(SetFrequency,SampleRate);
-					                          iqtest.clkgpio::SetFrequency(0);
-					                          iqtest.clkgpio::enableclk(4);
+					                          iqtest->Retune(SetFrequency,SampleRate);
 							      }
 							      sharedmem->updated=false;
     							   }
                                                         }
-							if (iqtest.ModeIQ==MODE_FREQ_A) {  //if into Frequency-Amplitude mode then only drive a constant carrier
+							if (iqtest->GetMode()==MODE_FREQ_A) {  //if into Frequency-Amplitude mode then only drive a constant carrier
                              				    IQBuffer[i*2]=10.0;            //should be 10 Hz 
                                                             IQBuffer[i*2+1]=drivedds;      //at the defined drive level
                           				}
@@ -401,11 +397,12 @@ int main(int argc, char* argv[])
 				break;	
 			
 		}
-		iqtest.SetIQSamples(CIQBuffer,CplxSampleNumber,Harmonic);
+		iqtest->SetIQSamples(CIQBuffer,CplxSampleNumber,Harmonic);
 	}
 
 
-	iqtest.stop();
+	iqtest->stop();
+	delete iqtest;
 
 // *--- Detach and delete shared memory
         if (sharedmem_token != 0) {

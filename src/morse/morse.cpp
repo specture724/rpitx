@@ -89,7 +89,7 @@ void Send_CW_OOK(const float freq, const float symbolrate, const char * cw)
 	//float symbolrate = 4; //10 HZ
 	float upsample = 125.0;
 	int FifoSize = strlen((char*)cw) - 1;
-	ookburst ook(freq, symbolrate, 14, FifoSize, upsample);
+	ookbasesender *ook = NewOokBurst(freq, symbolrate, 14, FifoSize, upsample);
 
 	unsigned char TabSymbol[FifoSize]; // = {0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0};
 	for (int i = 0; i <= FifoSize; i++)
@@ -97,7 +97,8 @@ void Send_CW_OOK(const float freq, const float symbolrate, const char * cw)
 		TabSymbol[i] = (cw[i] == '0') ? 0 : 1;
 		//printf("%d",TabSymbol[i]);
 	}
-	ook.SetSymbols(TabSymbol, FifoSize);
+	ook->SetSymbols(TabSymbol, FifoSize);
+	delete ook;
 }
 
 /**

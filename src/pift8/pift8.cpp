@@ -174,11 +174,11 @@ int main(int argc, char **argv) {
     float Deviation=6.25;
     dbg_setlevel(1);
 
-    fskburst fsk(frequency+offset, 6.25, Deviation, 14, FifoSize,Upsample,RampRatio);
+    fskbasesender *fsk = NewFskBurst(frequency+offset, 6.25, Deviation, 14, FifoSize,Upsample,RampRatio);
     if(ppm!=1000)
     {	//ppm is set else use ntp
-			fsk.Setppm(ppm);
-            fsk.SetCenterFrequency(frequency,50);            
+			fsk->Setppm(ppm);
+            fsk->SetCenterFrequency(frequency,50);            
     }    
 	//padgpio pad;
 	//pad.setlevel(7);// Set max power
@@ -203,8 +203,8 @@ int main(int argc, char **argv) {
     {
         if(!running) exit(0);
         fprintf(stderr,"Tx!\n");
-        fsk.SetSymbols(Symbols, (ft8::NN));
-        fsk.stop();
+        fsk->SetSymbols(Symbols, (ft8::NN));
+        fsk->stop();
         fprintf(stderr,"End of Tx\n");
         if(repeat)
         {

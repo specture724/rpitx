@@ -237,8 +237,8 @@ int main(int argc, char *argv[])
 	}
 	
 	// Prepare the message
-	ookbursttiming ooksender(Freq, computed_duration);
-	ookbursttiming::SampleOOKTiming Message[nbbits];
+	ooktimingbasesender *ooksender = NewOokTiming(Freq, computed_duration);
+	ooktimingbasesender::SampleOOKTiming Message[nbbits];
 	if(!filemode)
 	{
 		for(size_t i = 0; i < strlen(bits); i++)
@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < nbrepeat; i++)
 	{
 		if (!dryrun)
-			ooksender.SendMessage(Message, nbbits); 
+			ooksender->SendMessage(Message, nbbits); 
 		else
 		{
 			printf("Simulating SendMessage of %d bits\n", nbbits);
@@ -326,6 +326,7 @@ int main(int argc, char *argv[])
 		if(!running)
 			break;
 	}
+	delete ooksender;   // stops the carrier and releases the synthesiser
 	printf("Message successfuly transmitted\n");
 	return 0;
 }

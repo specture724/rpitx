@@ -114,7 +114,7 @@ extern "C"
 
 #include <librpitx/librpitx.h>
 
-ngfmdmasync *fmmod;
+fmbasesender *fmmod;
 // The deviation specifies how wide the signal is. 
 // Use 75kHz for WBFM (broadcast radio) 
 // and about 2.5kHz for NBFM (walkie-talkie style radio)
@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
         }
     }
 	int FifoSize=DATA_SIZE*2;
-    fmmod=new ngfmdmasync(carrier_freq,228000,14,FifoSize);
+    fmmod=NewFmSender(carrier_freq,228000,14,FifoSize);
     int errcode = tx(carrier_freq,  audio_file, pi, ps, rt, ppm, control_pipe);
     
     terminate(errcode);

@@ -21,7 +21,7 @@ float frequency=14.07e6;
 bool running=true;
 
 //ngfmdmasync *fmmod;
-fskburst *fsk;
+fskbasesender *fsk;
 static double GlobalTuningFrequency=00000.0;
 
 
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 	float Deviation = 4;
     int Upsample=100;
 	int FifoSize = 8*(20+1); //8 symbols * 20 caracters max, 1 Symbol SYNC
-	fsk=new fskburst(frequency, SR, Deviation, 14, FifoSize,Upsample,0.4);
+	fsk=NewFskBurst(frequency, SR, Deviation, 14, FifoSize,Upsample,0.4);
 
 	unsigned char TabSymbol[FifoSize];
     NbSymbol=strlen(Message);

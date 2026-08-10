@@ -19,7 +19,7 @@
 int FileVCO;
 bool running=true;
 
-ngfmdmasync *fmmod;
+fmbasesender *fmmod;
 static double GlobalTuningFrequency=00000.0;
 int FifoSize=100; //10ms
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
         sigaction(i, &sa, NULL);
     }
 
-	fmmod=new ngfmdmasync(frequency,/*100**/SampleRate*10,14,FifoSize); //400 bits*100 for 800XA	
+	fmmod=NewFmSender(frequency,/*100**/SampleRate*10,14,FifoSize); //400 bits*100 for 800XA	
 	padgpio pad;
 	pad.setlevel(7);// Set max power
 	

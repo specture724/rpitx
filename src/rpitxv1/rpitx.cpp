@@ -219,27 +219,18 @@ int main(int argc, char* argv[])
             case MODE_RPITX_IQ:
             case MODE_RPITX_IQ_FLOAT:
             {
-                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
-                        iqsender=new pioiqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
-                else
-                        iqsender=new iqdmasync(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
+                iqsender=NewIqSender(SetFrequency,SampleRate,14,FifoSize,MODE_IQ);
                 iqsender->Setppm(ppmpll);  
             }
             break;
             case MODE_RPITX_RFA://Amplitude
             {
-                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
-                        amsender=new pioamdmasync(SetFrequency,SampleRate,14,FifoSize);
-                else
-                amsender=new amdmasync(SetFrequency,SampleRate,14,FifoSize);
+                amsender=NewAmSender(SetFrequency,SampleRate,14,FifoSize);
             }
             break;
             case MODE_RPITX_RF://Frequency
             {
-                if(access("/dev/pio0",F_OK)==0) // Raspberry Pi 5 (RP1)
-                        fmsender=new piofmdmasync(SetFrequency,SampleRate,14,FifoSize);
-                else
-                        fmsender=new ngfmdmasync(SetFrequency,SampleRate,14,FifoSize);
+                fmsender=NewFmSender(SetFrequency,SampleRate,14,FifoSize);
             }
 
     }        

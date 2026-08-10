@@ -47,8 +47,11 @@ sudo reboot
 | Pi3B|OK|
 | Pi3B+|OK|
 | Pi4|In beta mode|
+| Pi5|OK (RP1 backends, see below)|
 
-Plug a wire on GPIO 4, means Pin 7 of the GPIO header ([header P1](http://elinux.org/RPi_Low-level_peripherals#General_Purpose_Input.2FOutput_.28GPIO.29)). This acts as the antenna. The optimal length of the wire depends the frequency you want to transmit on, but it works with a few centimeters for local testing.
+On the Raspberry Pi 5 the output pin depends on the frequency - see the
+Pi 5 section below - but on every other model, plug a wire on GPIO 4,
+means Pin 7 of the GPIO header ([header P1](http://elinux.org/RPi_Low-level_peripherals#General_Purpose_Input.2FOutput_.28GPIO.29)). This acts as the antenna. The optimal length of the wire depends the frequency you want to transmit on, but it works with a few centimeters for local testing.
 
 # Raspberry Pi 5 (RP1) support
 
@@ -61,19 +64,38 @@ policy so GPIO reads stay fast). A reboot after install is recommended.
 
 ## What works on Pi 5
 
-| Tool / mode | Output | Notes |
-|---|---|---|
-| `tune -f <Hz>` | pure carrier | two bands, see below: GPIO4 up to 200 MHz, GPIO6 above |
-| `rpitx -m RF` | FM via the RP1 PIO + DMA | carrier ceiling ~25 MHz; FM usable to ~1 MHz |
-| `rpitx -m RFA` | AM (OOK envelope) via the RP1 PIO | carrier ceiling ~25 MHz |
-| `rpitx -m IQ` / `-m IQFLOAT` | SSB (polar FM+OOK) via the RP1 PIO | same constraints |
-| `piofm` | FM audio tool (tone or raw file) | same constraints as `-m RF` |
-| `pio_fsk` | FSK symbol transmitter | low carriers (10-20 kHz class) |
+Everything except DVB-T. The tools do not choose a backend themselves - a
+factory in librpitx picks one from the requested carrier:
 
-Not working yet on Pi 5: the DVB-T path (`dvbrf` is skipped on 64-bit
-builds). The other classic tools (pifmrds, pocsag, ...) still use the
-BCM2835 DMA path and are not available on the RP1 - they now stop with a
-clear message instead of writing to unrelated RP1 registers.
+| Backend | Used for | Carrier range | Timing |
+|---|---|---|---|
+| RP1 PIO + its DMA | FM/AM/IQ sample streams | up to 25 MHz | sample-exact, DMA paced |
+| `pll_video` + CPU | everything above that, and all OOK/FSK bursts | up to 1.6 GHz | CPU paced, measured 1.4 ppm over a 12.6 s FT8 frame |
+
+| Tool | Status | Notes |
+|---|---|---|
+| `tune` | works | two bands, see below |
+| `rpitx -m RF/RFA/IQ/IQFLOAT` | works | PIO under 25 MHz, pll_video above |
+| `piofm`, `pio_fsk` | works | standalone PIO tools, HF only |
+| `morse`, `sendook` | works | carrier keyed by the pad's OD bit |
+| `pocsag`, `pift8`, `corel8` | works | FSK by rewriting `fbdiv_frac` |
+| `piopera` | works | OOK envelope |
+| `pisstv`, `pirtty`, `pifsq`, `pichirp`, `foxhunt` | works | FM, runs of equal samples are coalesced |
+| `freedv`, `pifmrds` | works | high sample rates, still paced correctly |
+| `sendiq`, `spectrumpaint` | works | polar (frequency + keyed envelope) |
+| `dvbrf` | **not ported** | needs 32-bit ARM assembler; skipped on 64-bit builds |
+
+Two things behave differently from the BCM2835 original:
+
+- **Amplitude is one bit.** The BCM path varies the pad drive strength per
+  sample to get 8 amplitude levels. Neither RP1 path can do that, so AM is
+  an on/off envelope and SSB is polar FM plus keying. Voice is intelligible
+  but distorted.
+- **A tool killed with SIGKILL cannot clean up**, so it may leave the
+  carrier running and `pll_video` borrowed. Ctrl-C is fine.
+
+Anything still using the BCM2835 DMA path now stops with a clear message
+instead of writing into unrelated RP1 registers.
 
 ## Carrier frequency on the Pi 5: two bands, two pins
 
@@ -141,9 +163,10 @@ Two caveats:
 - Above 200 MHz you must move your wire from GPIO4 to **GPIO6**. rpitx
   prints a reminder when it switches bands.
 
-The modulated modes (`-m RF/RFA/IQ`, `piofm`, `pio_fsk`) still go through
-the PIO and are capped at ~25 MHz - the high band is carrier-only for
-now.
+The high band is not carrier-only: the modulated modes reach it too, by
+keying or retuning `pll_video` from the CPU instead of streaming samples
+through the PIO. Only the standalone `piofm`/`pio_fsk` tools are PIO-only
+and therefore still capped at ~25 MHz.
 
 ## Frequency constraints of the PIO backends
 
