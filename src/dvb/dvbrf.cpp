@@ -4,6 +4,8 @@
 #include <cstring>
 #include <signal.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
 
 // DVBS ENCODER
 extern "C" 
@@ -17,7 +19,9 @@ extern "C" void reed (uchar *input188) ;
 extern "C" uchar*	interleave 	(uchar* packetin) ; 
 
 // DVBS2 ENCODER
-extern "C" uint32_t _dvbs2arm_control (uint32_t command, uint32_t param1) ;
+// param1 carries a buffer address, so it must be pointer-sized;
+// on 32-bit builds uintptr_t is uint32_t, so the asm ABI is unchanged.
+extern "C" uint32_t _dvbs2arm_control (uint32_t command, uintptr_t param1) ;
 extern "C" uchar* _dvbs2arm_process_packet (uchar *packet188) ;
 
 bool running=true;
@@ -169,9 +173,38 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 
-	while(SetFrequency*(float)(nbphase*2)/(float)Harmonic>1e9)
+	// The modulator runs a serialiser at carrier*phases, so the carrier has
+	// a hard ceiling and UHF is reached on an odd harmonic. On the RP1 that
+	// ceiling is the PIO clock; on the BCM2835 it is the PWM.
+	double PhaseCeiling=RpitxPhaseMaxCarrier(nbphase);
+	double ActualFrequency=SetFrequency;
+	if(PhaseCeiling>0)
 	{
-		Harmonic+=2;
+		// The RP1 clock divider is quantised, so the fundamental cannot be
+		// hit exactly and the error is multiplied by the harmonic. Search
+		// the odd harmonics for the one whose achievable fundamental lands
+		// closest to the frequency actually requested.
+		double best=-1; int besth=0;
+		for(int h=1;h<200;h+=2)
+		{
+			double fund=SetFrequency/(double)h;
+			if(fund>PhaseCeiling) continue;
+			double act=RpitxPhaseAchievable(fund,nbphase);
+			if(act<=0) continue;
+			double err=fabs(act*(double)h-SetFrequency);
+			if(best<0||err<best){best=err;besth=h;ActualFrequency=act*(double)h;}
+		}
+		if(besth>0) Harmonic=besth;
+		fprintf(stderr,"Transmitting on %.6f MHz (asked %.6f MHz, error %.1f kHz)\n",
+			ActualFrequency/1e6,(double)SetFrequency/1e6,
+			(ActualFrequency-(double)SetFrequency)/1e3);
+	}
+	else
+	{
+		while(SetFrequency*(float)(nbphase*2)/(float)Harmonic>1e9)
+		{
+			Harmonic+=2;
+		}
 	}
 	if(Harmonic>1)
 		fprintf(stderr,"Using harmonic %d : main frequency=%0.f\n",Harmonic,SetFrequency/(float)Harmonic);
@@ -180,7 +213,7 @@ int main(int argc, char* argv[])
 	{
 		int FifoSize=204*100*4;
 		int NumberofPhase=4;
-		phasedmasync dvbsmodul(SetFrequency/Harmonic,SampleRate,NumberofPhase,14,FifoSize);
+		phasebasesender *dvbsmodul = NewPhaseSender(SetFrequency/Harmonic,SampleRate,NumberofPhase,14,FifoSize);
 		padgpio pad;
 		pad.setlevel(7);
 
@@ -223,7 +256,7 @@ int main(int argc, char* argv[])
 									
 									
 								}	
-								dvbsmodul.SetPhaseSamples(PhaseBuffer,NbIQOutput*4);
+								dvbsmodul->SetPhaseSamples(PhaseBuffer,NbIQOutput*4);
 							}	
 						}
 						else 
@@ -238,13 +271,14 @@ int main(int argc, char* argv[])
 		}	
 				
 
-		dvbsmodul.stop();
+		dvbsmodul->stop();
+		delete dvbsmodul;
 	}
 	else
 	{
 		int FifoSize=546*30*4;
 		int NumberofPhase=4;
-		phasedmasync dvbs2modul(SetFrequency/Harmonic,SampleRate,NumberofPhase,14,FifoSize);
+		phasebasesender *dvbs2modul = NewPhaseSender(SetFrequency/Harmonic,SampleRate,NumberofPhase,14,FifoSize);
 		padgpio pad;
 		pad.setlevel(7);
 
@@ -252,7 +286,7 @@ int main(int argc, char* argv[])
 		 uchar	*IqBuffer=(uchar *)BuffAligned ;
 		unsigned char TsBuffer[188];
 		uint32_t Result=-1;
-		Result=_dvbs2arm_control (1,(uint32_t)IqBuffer) ;     // set DVB-S2 mode by passing buffer address
+		Result=_dvbs2arm_control (1,(uintptr_t)IqBuffer) ;     // set DVB-S2 mode by passing buffer address
 		
   		Result=_dvbs2arm_control (2,0x34) ;        // set FEC 3/4
 		
@@ -285,7 +319,7 @@ int main(int argc, char* argv[])
 										}
 								}
 								//printf("Symbol=%d\n",symbol);
-								dvbs2modul.SetPhaseSamples(PhaseBuffer,symbol);
+								dvbs2modul->SetPhaseSamples(PhaseBuffer,symbol);
 							}
 							else
 							{
@@ -302,7 +336,8 @@ int main(int argc, char* argv[])
 						}
 
 		}
-		dvbs2modul.stop();				
+		dvbs2modul->stop();
+		delete dvbs2modul;				
 	}
 	
 }	

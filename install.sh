@@ -69,10 +69,9 @@ sed -i \
   -e '/install -m 0755 \.\.\/pissb/d' \
   Makefile
 
-if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-  echo "64-bit OS detected: DVB-T (dvbrf) uses 32-bit ARM assembler, skipping it."
-  sed -i -e '/^all:/s| \.\./dvbrf||' -e '/install -m 0755 \.\.\/dvbrf/d' Makefile
-fi
+# dvbrf builds on 64-bit now: dvbsenco8.s was replaced by portable C (verified
+# bit-identical against it), and DVB-S2 - still 32-bit assembly - falls back to
+# a stub that reports it is unavailable.
 
 cd pift8 || exit
 require_submodule ft8_lib

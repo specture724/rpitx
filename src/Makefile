@@ -1,4 +1,4 @@
-all: ../pisstv ../piopera ../pifsq ../pichirp ../sendiq ../tune ../freedv ../pocsag ../spectrumpaint ../pifmrds ../rpitx ../corel8 ../pift8 ../sendook ../morse ../foxhunt ../pirtty
+all: ../dvbrf ../pisstv ../piopera ../pifsq ../pichirp ../sendiq ../tune ../freedv ../pocsag ../spectrumpaint ../pifmrds ../rpitx ../corel8 ../pift8 ../sendook ../morse ../foxhunt ../pirtty
 
 CFLAGS	?= -Wall -g -O2 -Wno-unused-variable
 CXXFLAGS ?= -std=c++11 -Wall -g -O2 -Wno-unused-variable
@@ -52,11 +52,24 @@ PIOFM_INC := $(patsubst %/linux/pio_rp1.h,%,$(firstword $(wildcard /usr/src/linu
 ../freedv : freedv/freedv.cpp 
 	$(CXX) $(CXXFLAGS) -o ../freedv freedv/freedv.cpp  $(LDFLAGS)
 
-../dvbrf : dvb/dvbrf.cpp dvb/dvbsenco8.s dvb/fec100.c dvb/dvbs2arm_1v30.s 
-	$(CC) $(CFLAGS) -c -o dvb/dvbsenco8.o dvb/dvbsenco8.s
-	$(CC) $(CFLAGS) -c -o dvb/dvbs2arm_1v30.o dvb/dvbs2arm_1v30.s
+# The DVB encoders were written as 32-bit ARM assembly. dvbs_enc.c replaces
+# dvbsenco8.s in portable C (verified bit-identical against it), so DVB-S
+# builds everywhere. DVB-S2 has no C equivalent, so 64-bit builds get a stub
+# that says so; 32-bit builds keep the original assembly.
+DVB_ARCH := $(shell uname -m)
+ifneq (,$(filter armv6l armv7l arm,$(DVB_ARCH)))
+DVB_S2_OBJ := dvb/dvbs2arm_1v30.o
+DVB_S2_SRC := dvb/dvbs2arm_1v30.s
+else
+DVB_S2_OBJ := dvb/dvbs2_stub.o
+DVB_S2_SRC := dvb/dvbs2_stub.c
+endif
+
+../dvbrf : dvb/dvbrf.cpp dvb/dvbs_enc.c dvb/fec100.c $(DVB_S2_SRC)
+	$(CC) $(CFLAGS) -c -o dvb/dvbs_enc.o dvb/dvbs_enc.c
+	$(CC) $(CFLAGS) -c -o $(DVB_S2_OBJ) $(DVB_S2_SRC)
 	$(CC) $(CFLAGS) -c -o dvb/fec100.o dvb/fec100.c
-	$(CXX) $(CXXFLAGS) -o ../dvbrf dvb/dvbrf.cpp dvb/dvbsenco8.o dvb/fec100.o dvb/dvbs2arm_1v30.o $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o ../dvbrf dvb/dvbrf.cpp dvb/dvbs_enc.o dvb/fec100.o $(DVB_S2_OBJ) $(LDFLAGS)
 
 ../pocsag: pocsag/pocsag.cpp 
 	$(CXX) $(CXXFLAGS) -o ../pocsag pocsag/pocsag.cpp $(LDFLAGS)
@@ -102,6 +115,7 @@ clean:
 	rm -f  ../dvbrf ../sendiq ../pissb ../pisstv ../pifsq ../pifm ../piam ../pidcf77 ../pichirp ../tune ../freedv ../piopera ../spectrumpaint ../pocsag ../pifmrds ../rpitx ../sendook ../foxhunt ../morse ../pift8
 
 install: all ../piam ../pidcf77
+	install -m 0755 ../dvbrf $(INSTALL_DIR)
 	install -m 0755 ../pisstv $(INSTALL_DIR)
 	install -m 0755 ../foxhunt $(INSTALL_DIR)
 	install -m 0755 ../pirtty $(INSTALL_DIR)

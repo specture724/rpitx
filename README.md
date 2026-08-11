@@ -64,13 +64,14 @@ policy so GPIO reads stay fast). A reboot after install is recommended.
 
 ## What works on Pi 5
 
-Everything except DVB-T. The tools do not choose a backend themselves - a
+Everything except DVB-S2. The tools do not choose a backend themselves - a
 factory in librpitx picks one from the requested carrier:
 
 | Backend | Used for | Carrier range | Timing |
 |---|---|---|---|
 | RP1 PIO + its DMA | FM/AM/IQ sample streams | up to 25 MHz | sample-exact, DMA paced |
 | `pll_video` + CPU | everything above that, and all OOK/FSK bursts | up to 1.6 GHz | CPU paced, measured 1.4 ppm over a 12.6 s FT8 frame |
+| PIO bit-serial + NCO | DVB-S (PSK) | 25 MHz, UHF on a harmonic | DMA paced, carrier exact to 0.02 Hz |
 
 | Tool | Status | Notes |
 |---|---|---|
@@ -83,7 +84,8 @@ factory in librpitx picks one from the requested carrier:
 | `pisstv`, `pirtty`, `pifsq`, `pichirp`, `foxhunt` | works | FM, runs of equal samples are coalesced |
 | `freedv`, `pifmrds` | works | high sample rates, still paced correctly |
 | `sendiq`, `spectrumpaint` | works | polar (frequency + keyed envelope) |
-| `dvbrf` | **not ported** | needs 32-bit ARM assembler; skipped on 64-bit builds |
+| `dvbrf -m dvbs` | works | QPSK by phase-accumulator synthesis on the PIO |
+| `dvbrf -m dvbs2` | **not ported** | its encoder is 32-bit ARM assembly with no C equivalent |
 
 Two things behave differently from the BCM2835 original:
 
@@ -93,6 +95,30 @@ Two things behave differently from the BCM2835 original:
   but distorted.
 - **A tool killed with SIGKILL cannot clean up**, so it may leave the
   carrier running and `pll_video` borrowed. Ctrl-C is fine.
+
+### DVB-S
+
+`dvbsenco8.s` (energy dispersal, RS(204,188), convolutional interleaver) was
+rewritten in C and checked bit-identical against the original assembly over
+2000 packets of varied payloads, so the outer coding is unchanged - the
+assembly only existed to hit 15 us/packet on a 700 MHz Pi 1.
+
+The modulator streams the carrier itself rather than a sample stream. The
+BCM2835 path clocks a serialiser at carrier*phases and rotates a repeating
+pattern to step the phase; on the RP1 the PIO clock divider has only 8
+fractional bits, and that error is multiplied by the harmonic, so instead the
+serialiser runs at an exact integer division of the 200 MHz PIO clock and the
+carrier comes from a 32-bit phase accumulator. Frequency is then exact to
+~0.02 Hz and phase steps stay exact for any number of phases.
+
+It is limited by DMA throughput, not the PIO: measured 5.89 Mword/s
+(188 Mbit/s) with 32 KB buffers, so the serial rate is held at 100 Mbit/s and
+the carrier ceiling is 25 MHz. UHF is reached on an odd harmonic, as it is on
+the BCM2835. A 20 second run at 434 MHz / 250 kSym/s showed no underruns.
+
+DVB-S2 is a different matter: its encoder (BCH + LDPC for every code rate) is
+2700 lines of 32-bit ARM assembly with no C equivalent in the tree, so on
+64-bit builds `-m dvbs2` reports that it is unavailable.
 
 Anything still using the BCM2835 DMA path now stops with a clear message
 instead of writing into unrelated RP1 registers.
