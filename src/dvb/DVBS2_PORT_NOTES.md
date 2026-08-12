@@ -103,6 +103,38 @@ is licence-compatible. They were cross-checked: the first column of the
 assembly's `ldpc_parameters_s34` is `3, 3198, 478, 4207, 1481, ...`, which is
 exactly `ldpc_tab_3_4S[0]` after its leading degree count of 12.
 
+## Encoder status (dvbs2_enc.c)
+
+Written, builds, and **not yet wired into dvbrf** - the stub is still used, so
+nothing is broken. It is not bit-exact yet. Confirmed working so far:
+
+* frame cadence is right: 51 frames from 400 packets, same as the oracle
+* the PLHEADER words match the oracle exactly
+* BBHEADER bytes 0-6 match (MATYPE, UPL, DFL, SYNC)
+
+Two things are known to be outstanding:
+
+1. **The PL scrambler is not implemented.** `build_outbuffer()` currently maps
+   QPSK and packs the words but skips scrambling, so every data symbol is
+   wrong. `symbols_scramble_and_split` in the assembly, plus
+   `symbols_scramble_table3/4`, is the remaining piece.
+2. **Stream phase at startup.** With marker packets (payload = a constant per
+   packet) the oracle's first datafield looks like:
+
+   ```
+   df[0..49]    uninitialised buffer content
+   df[50..186]  packet 0 payload (only 137 of its 187 bytes)
+   df[187]      CRC-8 of packet 0's payload
+   df[188..374] packet 1 payload
+   ... every 188 bytes thereafter
+   ```
+
+   So the steady-state structure is confirmed, but the oracle starts 50 bytes
+   into its buffer and the leading bytes are garbage. That first frame cannot
+   and should not be reproduced byte for byte; the comparison should be made
+   on a later frame once both encoders are in steady state, and SYNCD follows
+   from whatever phase is chosen.
+
 ## Remaining work
 
 1. Encoder in C: mode adaptation, BBHEADER + CRC-8, BB scramble, BCH (168-bit
